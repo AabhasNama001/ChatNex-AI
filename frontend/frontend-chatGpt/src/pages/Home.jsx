@@ -35,11 +35,11 @@ const Home = () => {
   // Load initial chats & setup socket
   useEffect(() => {
     axios
-      .get("http://localhost:3000/api/chat", { withCredentials: true })
+      .get("https://chatnex-ai.onrender.com/api/chat", { withCredentials: true })
       .then((res) => setChats(res.data.chats.reverse()))
       .catch(console.error);
 
-    const tempSocket = io("http://localhost:3000", { withCredentials: true });
+    const tempSocket = io("https://chatnex-ai.onrender.com", { withCredentials: true });
 
     tempSocket.on("ai-message-response", (messagePayload) => {
       setMessages((prev) => [
@@ -62,7 +62,7 @@ const Home = () => {
 
     try {
       const response = await axios.post(
-        "http://localhost:3000/api/chat",
+        "https://chatnex-ai.onrender.com/api/chat",
         { title },
         { withCredentials: true }
       );
@@ -81,7 +81,7 @@ const Home = () => {
   const getMessages = async (chatId) => {
     try {
       const res = await axios.get(
-        `http://localhost:3000/api/chat/messages/${chatId}`,
+        `https://chatnex-ai.onrender.com/api/chat/messages/${chatId}`,
         { withCredentials: true }
       );
 
