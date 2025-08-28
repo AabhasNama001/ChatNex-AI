@@ -7,6 +7,7 @@ import rehypeHighlight from "rehype-highlight";
 import "highlight.js/styles/github-dark.css";
 import { Copy, Check } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 
 const Home = () => {
   const [chats, setChats] = useState([]);
@@ -149,7 +150,10 @@ const Home = () => {
           <button
             onClick={() => {
               document.cookie = "token=; Max-Age=0; path=/;";
-              window.location.href = "/login";
+              toast.error("Logged out!");
+              setTimeout(() => {
+                window.location.href = "/login"; // ✅ use navigate instead of window.location.href
+              }, 400);
             }}
             className="px-3 py-2 text-sm rounded bg-[#1f2937] border border-blue-700 text-blue-400 font-semibold hover:scale-90 transform transition-transform duration-200"
           >
@@ -218,7 +222,10 @@ const Home = () => {
             <button
               onClick={() => {
                 document.cookie = "token=; Max-Age=0; path=/;";
-                window.location.href = "/login";
+                toast.error("Logged out!");
+                setTimeout(() => {
+                  window.location.href = "/login"; // ✅ use navigate instead of window.location.href
+                }, 400);
               }}
               className="hidden lg:block w-full px-3 py-2 text-sm rounded bg-[#1f2937] border border-blue-700 text-blue-400 font-semibold hover:bg-[#293145]"
             >

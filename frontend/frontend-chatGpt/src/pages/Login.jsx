@@ -2,6 +2,7 @@ import React, { useState, useContext } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { AuthContext } from "../context/AuthContext";
+import { toast } from "react-toastify";
 
 const Login = () => {
   const [form, setForm] = useState({ email: "", password: "" });
@@ -34,6 +35,7 @@ const Login = () => {
 
       // ✅ Redirect to home
       navigate("/");
+      toast.success("Login successful!");
     } catch (err) {
       console.error(err.response?.data || err.message);
       setError(err.response?.data?.message || "Login failed");
@@ -43,7 +45,7 @@ const Login = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-[#030c18] to-[#090332] text-[var(--text-color)]">
+    <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-[#030c18] to-[#383451] text-[var(--text-color)]">
       <div className="w-full max-w-md rounded-2xl shadow-lg p-8 bg-[var(--card-color)]">
         <h2 className="text-2xl font-semibold mb-2">Sign in</h2>
         <p className="text-sm text-[var(--muted-color)] mb-4">

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
+import { toast } from "react-toastify";
 
 const Register = () => {
   const [form, setForm] = useState({
@@ -37,6 +38,7 @@ const Register = () => {
 
       console.log(res);
       navigate("/login");
+      toast.success("Registration successful! Please log in.");
     } catch (err) {
       console.error(err);
       alert("Registration failed (placeholder)");
@@ -46,7 +48,7 @@ const Register = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-[#030c18] to-[#090332] text-[var(--text-color)]">
+    <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-[#030c18] to-[#383451] text-[var(--text-color)]">
       <div className="w-full max-w-2xl rounded-2xl shadow-lg p-8 bg-[var(--card-color)] text-[var(--text-color)]">
         <header className="mb-6">
           <h1 className="text-2xl font-semibold">Create account</h1>
