@@ -162,8 +162,8 @@ const Home = () => {
         {/* Sidebar */}
         <aside
           className={`fixed inset-y-0 left-0 z-20 w-64 transform bg-[#141520] p-4 shadow-lg transition-transform
-            lg:translate-x-0 lg:relative lg:flex-shrink-0 lg:h-full
-            ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
+    lg:translate-x-0 lg:relative lg:flex-shrink-0 lg:h-full flex flex-col
+    ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
         >
           {/* Close button for mobile */}
           <div className="flex items-center justify-between mb-4 lg:hidden">
@@ -189,7 +189,8 @@ const Home = () => {
             + New Chat
           </button>
 
-          <ul className="space-y-2 overflow-y-auto max-h-[calc(100vh-150px)] custom-scrollbar">
+          {/* Chat list */}
+          <ul className="flex-1 space-y-2 overflow-y-auto custom-scrollbar">
             {chats.map((c) => (
               <li key={c._id} className="relative group">
                 <button
@@ -211,6 +212,19 @@ const Home = () => {
               </li>
             ))}
           </ul>
+
+          {/* Logout button at bottom */}
+          <div className="mt-4 lg:mt-auto">
+            <button
+              onClick={() => {
+                document.cookie = "token=; Max-Age=0; path=/;";
+                window.location.href = "/login";
+              }}
+              className="hidden lg:block w-full px-3 py-2 text-sm rounded bg-[#1f2937] border border-blue-700 text-blue-400 font-semibold hover:bg-[#293145]"
+            >
+              Logout
+            </button>
+          </div>
         </aside>
 
         {/* Mobile overlay */}
@@ -222,22 +236,7 @@ const Home = () => {
         )}
 
         {/* Main chat area */}
-        <main className="flex-1 flex flex-col w-full max-w-full md:max-w-2xl xl:max-w-4xl mx-auto p-4 sm:p-6 text-gray-200 relative">
-          {/* Logout for desktop */}
-          <div className="absolute top-4 right-4 hidden lg:block">
-            <div className="bg-[#1f2937] p-2 rounded-md shadow-md border border-blue-700">
-              <button
-                onClick={() => {
-                  document.cookie = "token=; Max-Age=0; path=/;";
-                  window.location.href = "/login";
-                }}
-                className="block w-full px-3 py-2 text-sm rounded text-blue-400 font-semibold transition-colors duration-200"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
-
+        <main className="flex-1 flex flex-col w-full max-w-full md:max-w-2xl lg:max-w-xl xl:max-w-3xl 2xl:max-w-4xl mx-auto p-4 sm:p-6 text-gray-200 relative">
           {!messages.length ? (
             <div className="flex-1 flex flex-col justify-center items-center mt-10 sm:mt-20 text-center">
               <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-semibold text-blue-400">
