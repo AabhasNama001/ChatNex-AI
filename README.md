@@ -35,7 +35,12 @@ ChatNex AI enables users to interact with AI in a smooth, responsive, and modern
 ### AI Integration  
 - Custom AI model integration with intelligent context handling  
 
+---
+
+## 📂 Project Structure  
+
 ChatNex-AI/
+
 │── client/ # React + Tailwind frontend
 │── server/ # Node + Express backend
 │── models/ # MongoDB models
@@ -44,6 +49,3 @@ ChatNex-AI/
 │── utils/ # Utility functions
 │── package.json # Backend dependencies
 │── README.md # Documentation
-
-## 📂 Project Structure  
-
