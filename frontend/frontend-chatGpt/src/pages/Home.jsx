@@ -19,6 +19,10 @@ const Home = () => {
   const [socket, setSocket] = useState(null);
   const [copiedIndex, setCopiedIndex] = useState(null);
 
+  // New states for modal
+  const [newChatModalOpen, setNewChatModalOpen] = useState(false);
+  const [newChatTitle, setNewChatTitle] = useState("");
+
   const navigate = useNavigate();
   const messagesEndRef = useRef(null);
 
@@ -35,11 +39,15 @@ const Home = () => {
   // Load initial chats & setup socket
   useEffect(() => {
     axios
-      .get("https://chatnex-ai.onrender.com/api/chat", { withCredentials: true })
+      .get("https://chatnex-ai.onrender.com/api/chat", {
+        withCredentials: true,
+      })
       .then((res) => setChats(res.data.chats.reverse()))
       .catch(console.error);
 
-    const tempSocket = io("https://chatnex-ai.onrender.com", { withCredentials: true });
+    const tempSocket = io("https://chatnex-ai.onrender.com", {
+      withCredentials: true,
+    });
 
     tempSocket.on("ai-message-response", (messagePayload) => {
       setMessages((prev) => [
@@ -56,8 +64,7 @@ const Home = () => {
 
   // Create new chat
   const createNewChat = async () => {
-    let title = window.prompt("Enter a title for the new chat:", "");
-    if (title) title = title.trim();
+    const title = newChatTitle.trim();
     if (!title) return;
 
     try {
@@ -72,6 +79,8 @@ const Home = () => {
       setActiveChatId(chat._id);
       getMessages(chat._id);
       setSidebarOpen(false);
+      setNewChatTitle("");
+      setNewChatModalOpen(false);
     } catch (error) {
       console.error("Error creating chat:", error);
     }
@@ -152,7 +161,7 @@ const Home = () => {
               document.cookie = "token=; Max-Age=0; path=/;";
               toast.error("Logged out!");
               setTimeout(() => {
-                window.location.href = "/login"; // ✅ use navigate instead of window.location.href
+                window.location.href = "/login";
               }, 400);
             }}
             className="px-3 py-2 text-sm rounded bg-[#1f2937] border border-blue-700 text-blue-400 font-semibold hover:scale-90 transform transition-transform duration-200"
@@ -186,8 +195,9 @@ const Home = () => {
             <img src="/logo.png" alt="Logo" className="h-16 w-auto" />
           </div>
 
+          {/* Open modal button */}
           <button
-            onClick={createNewChat}
+            onClick={() => setNewChatModalOpen(true)}
             className="w-full text-sm px-3 py-2 mb-4 rounded bg-blue-600 text-white hover:bg-blue-700"
           >
             + New Chat
@@ -224,7 +234,7 @@ const Home = () => {
                 document.cookie = "token=; Max-Age=0; path=/;";
                 toast.error("Logged out!");
                 setTimeout(() => {
-                  window.location.href = "/login"; // ✅ use navigate instead of window.location.href
+                  window.location.href = "/login";
                 }, 400);
               }}
               className="hidden lg:block w-full px-3 py-2 text-sm rounded bg-[#1f2937] border border-blue-700 text-blue-400 font-semibold hover:bg-[#293145]"
@@ -240,6 +250,38 @@ const Home = () => {
             className="fixed inset-0 z-10 bg-black/40 lg:hidden"
             onClick={() => setSidebarOpen(false)}
           />
+        )}
+
+        {/* New Chat Modal */}
+        {newChatModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+            <div className="bg-gradient-to-br from-[#1e1f2a] to-[#141520] rounded-xl w-full max-w-md p-6 shadow-2xl transform transition-transform duration-300 ease-out animate-fadeIn scale-95">
+              <h2 className="text-2xl sm:text-3xl font-bold text-blue-400 mb-6 text-center animate-pulse">
+                Enter Chat Title
+              </h2>
+              <input
+                autoFocus
+                value={newChatTitle}
+                onChange={(e) => setNewChatTitle(e.target.value)}
+                placeholder="Type your chat title..."
+                className="w-full px-5 py-3 rounded-lg bg-[#0f172a] border border-blue-600 text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 focus:ring-offset-[#141520] mb-6 transition-all duration-300"
+              />
+              <div className="flex flex-col sm:flex-row justify-end gap-3">
+                <button
+                  onClick={createNewChat}
+                  className="w-full sm:w-auto px-5 py-3 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-600 hover:to-blue-700 shadow-lg transition-all duration-200"
+                >
+                  Create
+                </button>
+                <button
+                  onClick={() => setNewChatModalOpen(false)}
+                  className="w-full sm:w-auto px-5 py-3 rounded-lg bg-gray-700 text-gray-200 hover:bg-gray-600 transition-colors duration-200"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Main chat area */}

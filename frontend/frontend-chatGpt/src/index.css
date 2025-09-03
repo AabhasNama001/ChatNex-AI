@@ -19,3 +19,34 @@
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: #3b82f6;
 }
+
+.glow-drift,
+.blob {
+    position: absolute;
+    border-radius: 50%;
+    animation-name: drift-loop;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+}
+
+.glow-drift {
+    box-shadow: 0 0 12px rgba(255, 255, 255, 0.8), 0 0 20px rgba(255, 255, 255, 0.4);
+}
+
+.blob {
+    filter: blur(10px);
+}
+
+/* Continuous drift animation with wrap-around */
+@keyframes drift-loop {
+    0% {
+        transform: translate(0, 0);
+        opacity: 0.5;
+    }
+
+    100% {
+        transform: translate(200vw, -200vh);
+        /* far enough to wrap and reappear */
+        opacity: 0.8;
+    }
+}

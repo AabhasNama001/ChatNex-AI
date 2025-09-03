@@ -1,8 +1,11 @@
-import React, { useState, useContext } from "react";
+import React, { useState, useContext, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { AuthContext } from "../context/AuthContext";
 import { toast } from "react-toastify";
+
+const NUM_PARTICLES = 30;
+const NUM_BLOBS = 6;
 
 const Login = () => {
   const [form, setForm] = useState({ email: "", password: "" });
@@ -10,6 +13,9 @@ const Login = () => {
   const [error, setError] = useState("");
   const navigate = useNavigate();
   const { setIsAuthenticated } = useContext(AuthContext);
+  const backgroundRef = useRef(null);
+  const particlesRef = useRef([]);
+  const blobsRef = useRef([]);
 
   function handleChange(e) {
     const { name, value } = e.target;
@@ -28,12 +34,7 @@ const Login = () => {
         { withCredentials: true }
       );
 
-      console.log(res.data);
-
-      // ✅ Update auth state immediately
       setIsAuthenticated(true);
-
-      // ✅ Redirect to home
       navigate("/");
       toast.success("Login successful!");
     } catch (err) {
@@ -44,9 +45,89 @@ const Login = () => {
     }
   }
 
+  // Background particles + blobs animation
+  useEffect(() => {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    particlesRef.current = [...Array(NUM_PARTICLES)].map(() => ({
+      x: Math.random() * width,
+      y: Math.random() * height,
+      size: Math.random() * 3 + 2,
+      color: `hsl(${Math.random() * 360}, 70%, 80%)`,
+      vx: (Math.random() - 0.5) * 0.5,
+      vy: (Math.random() - 0.5) * 0.5,
+    }));
+
+    blobsRef.current = [...Array(NUM_BLOBS)].map(() => ({
+      x: Math.random() * width,
+      y: Math.random() * height,
+      size: Math.random() * 40 + 20,
+      color: `hsla(${Math.random() * 360}, 70%, 50%, 0.3)`,
+      vx: (Math.random() - 0.5) * 0.2,
+      vy: (Math.random() - 0.5) * 0.2,
+    }));
+
+    const animate = () => {
+      particlesRef.current.forEach((p) => {
+        p.x += p.vx;
+        p.y += p.vy;
+        if (p.x > width) p.x = 0;
+        if (p.x < 0) p.x = width;
+        if (p.y > height) p.y = 0;
+        if (p.y < 0) p.y = height;
+      });
+
+      blobsRef.current.forEach((b) => {
+        b.x += b.vx;
+        b.y += b.vy;
+        if (b.x > width) b.x = 0;
+        if (b.x < 0) b.x = width;
+        if (b.y > height) b.y = 0;
+        if (b.y < 0) b.y = height;
+      });
+
+      if (backgroundRef.current) {
+        backgroundRef.current.innerHTML = "";
+
+        particlesRef.current.forEach((p) => {
+          const span = document.createElement("span");
+          span.style.position = "absolute";
+          span.style.width = `${p.size}px`;
+          span.style.height = `${p.size}px`;
+          span.style.borderRadius = "50%";
+          span.style.backgroundColor = p.color;
+          span.style.boxShadow = `0 0 12px ${p.color}, 0 0 20px ${p.color}`;
+          span.style.left = `${p.x}px`;
+          span.style.top = `${p.y}px`;
+          backgroundRef.current.appendChild(span);
+        });
+
+        blobsRef.current.forEach((b) => {
+          const span = document.createElement("span");
+          span.style.position = "absolute";
+          span.style.width = `${b.size}px`;
+          span.style.height = `${b.size}px`;
+          span.style.borderRadius = "50%";
+          span.style.backgroundColor = b.color;
+          span.style.filter = "blur(10px)";
+          span.style.left = `${b.x}px`;
+          span.style.top = `${b.y}px`;
+          backgroundRef.current.appendChild(span);
+        });
+      }
+
+      requestAnimationFrame(animate);
+    };
+
+    animate();
+  }, []);
+
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-[#030c18] to-[#383451] text-[var(--text-color)]">
-      <div className="w-full max-w-md rounded-2xl shadow-lg p-8 bg-[var(--card-color)]">
+    <div className="relative min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-[#030c18] to-[#383451] text-[var(--text-color)] overflow-hidden">
+      <div ref={backgroundRef} className="absolute inset-0 z-0"></div>
+
+      <div className="w-full max-w-xl rounded-2xl shadow-lg p-8 bg-gradient-to-br from-[#0000ff]/10 to-[#030c18] border-2 border-gray-400 text-[var(--text-color)] z-10">
         <h2 className="text-2xl font-semibold mb-2">Sign in</h2>
         <p className="text-sm text-[var(--muted-color)] mb-4">
           Use your email to sign in to your account.
