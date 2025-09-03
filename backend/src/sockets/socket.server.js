@@ -30,7 +30,10 @@ function initSocketServer(httpServer) {
       socket.user = user;
 
       next();
-    } catch (error) {}
+    } catch (error) {
+      console.error("Socket auth error:", error.message);
+      next(new Error("Authentication error"));
+    }
   });
 
   io.on("connection", (socket) => {
