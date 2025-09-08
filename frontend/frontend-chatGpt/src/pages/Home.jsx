@@ -12,8 +12,6 @@ import {
   ChevronDown,
   Plus,
   AlertTriangle,
-  Sun,
-  Moon,
   Pin,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -35,16 +33,13 @@ const Home = () => {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [chatToDelete, setChatToDelete] = useState(null);
 
+  // User state
+  const [user, setUser] = useState(null);
+
   // Sidebar functionality states
   const [searchTerm, setSearchTerm] = useState("");
   const [isRecentVisible, setIsRecentVisible] = useState(true);
 
-  // ✨ NEW: Theme state, initialized from localStorage
-  const [theme, setTheme] = useState(
-    () => localStorage.getItem("chat-theme") || "dark"
-  );
-
-  // ✨ NEW: Pinned chats state, initialized from localStorage
   const [pinnedChats, setPinnedChats] = useState(() => {
     const savedPins = localStorage.getItem("pinned-chats");
     return savedPins ? JSON.parse(savedPins) : [];
@@ -58,7 +53,6 @@ const Home = () => {
     [chats, activeChatId]
   );
 
-  // ✨ REVISED: Logic to separate chats into pinned and unpinned, then filter by search
   const { filteredPinned, filteredUnpinned } = useMemo(() => {
     const pinned = [];
     const unpinned = [];
@@ -85,12 +79,12 @@ const Home = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // ✨ NEW: Effect to save pinned chats to localStorage whenever they change
+  // Effect to save pinned chats to localStorage
   useEffect(() => {
     localStorage.setItem("pinned-chats", JSON.stringify(pinnedChats));
   }, [pinnedChats]);
 
-  // Dynamically load highlight.js CSS for markdown styling
+  // Dynamically load highlight.js CSS
   useEffect(() => {
     const link = document.createElement("link");
     link.rel = "stylesheet";
@@ -102,15 +96,32 @@ const Home = () => {
     };
   }, []);
 
-  // Load initial chats & setup socket
+  // Load initial data (chats, user) & setup socket
   useEffect(() => {
+    // Fetch user data from the new backend endpoint
+    const fetchUser = async () => {
+      try {
+        const response = await axios.get("https://chatnex-ai.onrender.com/api/auth/me", {
+          withCredentials: true,
+        });
+        // The backend now returns a user object with a combined `name` property
+        setUser(response.data.user);
+      } catch (error) {
+        console.error("Failed to fetch user data", error);
+        // If the token is invalid or expired, you might want to redirect to the login page
+        // navigate('/login');
+      }
+    };
+    fetchUser();
+
+    // Fetch chats
     axios
       .get("https://chatnex-ai.onrender.com/api/chat", { withCredentials: true })
       .then((res) => setChats(res.data.chats.reverse()))
       .catch(console.error);
 
+    // Setup socket
     const tempSocket = io("https://chatnex-ai.onrender.com", { withCredentials: true });
-
     tempSocket.on("ai-message-response", (messagePayload) => {
       setMessages((prev) => [
         ...prev,
@@ -118,7 +129,6 @@ const Home = () => {
       ]);
       setIsSending(false);
     });
-
     setSocket(tempSocket);
 
     return () => tempSocket.disconnect();
@@ -128,7 +138,6 @@ const Home = () => {
   const createNewChat = async () => {
     const title = newChatTitle.trim();
     if (!title) return;
-
     try {
       const response = await axios.post(
         "https://chatnex-ai.onrender.com/api/chat",
@@ -199,40 +208,48 @@ const Home = () => {
     }
   };
 
-  // Send message
   const sendMessage = async (e) => {
     e?.preventDefault?.();
     const text = input.trim();
     if (!text || !activeChatId || isSending) return;
-
     setIsSending(true);
     setMessages((prev) => [...prev, { type: "user", content: text }]);
     setInput("");
-
     socket.emit("ai-message", { chat: activeChatId, content: text });
   };
 
-  // Copy message
   const handleCopy = (text, index) => {
     navigator.clipboard.writeText(text);
     setCopiedIndex(index);
     setTimeout(() => setCopiedIndex(null), 1500);
   };
 
-  // ✨ NEW: Function to toggle a chat's pinned status
   const togglePinChat = (chatId) => {
     setPinnedChats((prev) => {
       if (prev.includes(chatId)) {
-        return prev.filter((id) => id !== chatId); // Unpin
+        return prev.filter((id) => id !== chatId);
       } else {
-        return [...prev, chatId]; // Pin
+        return [...prev, chatId];
       }
     });
   };
 
+  const UserAvatar = ({ user }) => {
+    if (!user || !user.name) return null;
+    const initials = user.name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase();
+    return (
+      <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-bold flex-shrink-0">
+        {initials}
+      </div>
+    );
+  };
+
   return (
     <div className="chat-layout h-screen flex flex-col bg-gray-100 dark:bg-gradient-to-br dark:from-black dark:to-[#35354b]">
-      {/* Mobile Top Bar */}
       <header className="lg:hidden flex items-center justify-between px-4 py-3 bg-white dark:bg-[#141520] relative border-b border-gray-200 dark:border-gray-800">
         <button
           aria-label="Open sidebar"
@@ -259,13 +276,11 @@ const Home = () => {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar */}
         <aside
           className={`fixed inset-y-0 left-0 z-20 w-72 transform bg-gray-50 dark:bg-[#141520] p-4 shadow-lg transition-transform
           lg:translate-x-0 lg:relative lg:flex-shrink-0 lg:h-full flex flex-col
           ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
         >
-          {/* Sidebar Header */}
           <div className="flex items-center justify-between mb-4">
             <div className="hidden lg:flex items-center gap-3">
               <img src="/logo.png" alt="Logo" className="h-12 w-auto" />
@@ -290,7 +305,6 @@ const Home = () => {
           </button>
 
           <div className="flex-1 flex flex-col overflow-y-auto custom-scrollbar">
-            {/* ✨ NEW: Pinned Chats Section */}
             {filteredPinned.length > 0 && (
               <div className="mb-4">
                 <h3 className="px-2 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
@@ -299,35 +313,40 @@ const Home = () => {
                 <ul className="space-y-1">
                   {filteredPinned.map((c) => (
                     <li key={c._id} className="relative group">
-                      <button
+                      <div
+                        role="button"
+                        tabIndex="0"
                         onClick={() => selectChat(c._id)}
-                        className={`w-full pl-3 pr-10 py-2 rounded-md text-left truncate text-sm font-medium ${
+                        onKeyPress={(e) =>
+                          e.key === "Enter" && selectChat(c._id)
+                        }
+                        className={`w-full flex items-center justify-between pl-3 pr-2 py-2 rounded-md text-left text-sm font-medium cursor-pointer ${
                           activeChatId === c._id
                             ? "bg-blue-600/20 text-blue-700 dark:bg-blue-600/40 dark:text-white"
                             : "text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-blue-500/20"
                         }`}
                       >
-                        {c.title}
-                      </button>
-                      <div className="absolute top-1/2 -translate-y-1/2 right-2 flex items-center">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            togglePinChat(c._id);
-                          }}
-                          className="p-1 text-blue-500"
-                        >
-                          <Pin size={14} className="fill-current" />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openDeleteConfirmation(c._id);
-                          }}
-                          className="p-1 text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400 opacity-0 group-hover:opacity-100"
-                        >
-                          ✕
-                        </button>
+                        <span className="truncate min-w-0 pr-2">{c.title}</span>
+                        <div className="flex items-center flex-shrink-0">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              togglePinChat(c._id);
+                            }}
+                            className="p-1 text-blue-500"
+                          >
+                            <Pin size={14} className="fill-current" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openDeleteConfirmation(c._id);
+                            }}
+                            className="p-1 text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400 opacity-0 group-hover:opacity-100"
+                          >
+                            ✕
+                          </button>
+                        </div>
                       </div>
                     </li>
                   ))}
@@ -335,7 +354,6 @@ const Home = () => {
               </div>
             )}
 
-            {/* Recent Chats Section */}
             <div>
               <button
                 onClick={() => setIsRecentVisible(!isRecentVisible)}
@@ -375,35 +393,45 @@ const Home = () => {
                   {filteredUnpinned.length > 0 ? (
                     filteredUnpinned.map((c) => (
                       <li key={c._id} className="relative group">
-                        <button
+                        {/* The main clickable element is a DIV, not a BUTTON */}
+                        <div
+                          role="button"
+                          tabIndex="0"
                           onClick={() => selectChat(c._id)}
-                          className={`w-full pl-3 pr-10 py-2 rounded-md text-left truncate text-sm font-medium ${
+                          onKeyPress={(e) =>
+                            e.key === "Enter" && selectChat(c._id)
+                          }
+                          className={`w-full flex items-center justify-between pl-3 pr-2 py-2 rounded-md text-left text-sm font-medium cursor-pointer ${
                             activeChatId === c._id
                               ? "bg-blue-600/20 text-blue-700 dark:bg-blue-600/40 dark:text-white"
                               : "text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-blue-500/20"
                           }`}
                         >
-                          {c.title}
-                        </button>
-                        <div className="absolute top-1/2 -translate-y-1/2 right-2 flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              togglePinChat(c._id);
-                            }}
-                            className="p-1 text-gray-500 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400"
-                          >
-                            <Pin size={14} />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openDeleteConfirmation(c._id);
-                            }}
-                            className="p-1 text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400"
-                          >
-                            ✕
-                          </button>
+                          <span className="truncate min-w-0 pr-2">
+                            {c.title}
+                          </span>
+
+                          {/* These inner buttons are now valid because their parent is a DIV */}
+                          <div className="flex items-center flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                togglePinChat(c._id);
+                              }}
+                              className="p-1 text-gray-500 dark:text-gray-400 hover:text-blue-500 dark:hover:text-blue-400"
+                            >
+                              <Pin size={14} />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openDeleteConfirmation(c._id);
+                              }}
+                              className="p-1 text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400"
+                            >
+                              ✕
+                            </button>
+                          </div>
                         </div>
                       </li>
                     ))
@@ -417,24 +445,37 @@ const Home = () => {
             </div>
           </div>
 
-          {/* Sidebar Footer with Theme Toggle */}
-          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-800 flex items-center justify-between">
-            <button
-              onClick={() => {
-                document.cookie = "token=; Max-Age=0; path=/;";
-                toast.error("Logged out!");
-                setTimeout(() => {
-                  window.location.href = "/login";
-                }, 400);
-              }}
-              className="hidden lg:block w-full px-3 py-2 text-sm rounded bg-gray-200 dark:bg-[#1f2937] border border-gray-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 font-semibold hover:bg-gray-300 dark:hover:bg-[#293145]"
-            >
-              Logout
-            </button>
+          {/* Sidebar Footer */}
+          <div className="mt-auto pt-4 border-t border-gray-200 dark:border-gray-800">
+            {/* User Profile Section */}
+            {user && user.name && (
+              <div className="p-2 rounded-lg mb-2 transition-colors">
+                <div className="flex items-center gap-3">
+                  <UserAvatar user={user} />
+                  <span className="font-semibold text-sm text-gray-800 dark:text-gray-200 truncate min-w-0">
+                    {user.name}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between">
+              <button
+                onClick={() => {
+                  document.cookie = "token=; Max-Age=0; path=/;";
+                  toast.error("Logged out!");
+                  setTimeout(() => {
+                    window.location.href = "/login";
+                  }, 400);
+                }}
+                className="hidden lg:block w-full px-3 py-2 text-sm rounded bg-gray-200 dark:bg-[#1f2937] border border-gray-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 font-semibold hover:bg-gray-300 dark:hover:bg-[#293145]"
+              >
+                Logout
+              </button>
+            </div>
           </div>
         </aside>
 
-        {/* Mobile overlay */}
         {sidebarOpen && (
           <div
             className="fixed inset-0 z-10 bg-black/40 lg:hidden"
@@ -442,7 +483,6 @@ const Home = () => {
           />
         )}
 
-        {/* Delete Confirmation Modal */}
         {deleteModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
             <div className="bg-white dark:bg-gradient-to-br dark:from-[#1e1f2a] dark:to-[#141520] rounded-xl w-full max-w-md p-6 shadow-2xl border border-gray-200 dark:border-gray-700">
@@ -474,7 +514,6 @@ const Home = () => {
           </div>
         )}
 
-        {/* New Chat Modal */}
         {newChatModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
             <div className="bg-white dark:bg-gradient-to-br dark:from-[#1e1f2a] dark:to-[#141520] rounded-xl w-full max-w-md p-6 shadow-2xl">
@@ -507,7 +546,6 @@ const Home = () => {
           </div>
         )}
 
-        {/* Main chat area */}
         <main className="flex-1 flex flex-col w-full max-w-full md:max-w-2xl lg:max-w-xl xl:max-w-3xl 2xl:max-w-4xl mx-auto p-4 sm:p-6 text-gray-900 dark:text-gray-200 relative">
           {!messages.length ? (
             <div className="flex-1 flex flex-col justify-center items-center mt-10 sm:mt-20 text-center">
@@ -551,7 +589,6 @@ const Home = () => {
                   >
                     {m.type === "user" ? "You" : "AI"}
                   </div>
-
                   <div
                     className={`relative group p-3 rounded-lg break-words max-w-[90%] sm:max-w-[80%] md:max-w-[75%] ${
                       m.type === "user"
@@ -571,7 +608,6 @@ const Home = () => {
                     ) : (
                       m.content
                     )}
-
                     <button
                       onClick={() => handleCopy(m.content, i)}
                       className={`absolute bottom-2 right-2 p-1 rounded opacity-0 group-hover:opacity-100 transition ${
@@ -587,7 +623,6 @@ const Home = () => {
                         <Copy size={14} />
                       )}
                     </button>
-
                     {copiedIndex === i && (
                       <span className="absolute -bottom-5 right-2 text-xs bg-gray-900 text-white px-2 py-1 rounded shadow">
                         Copied!
