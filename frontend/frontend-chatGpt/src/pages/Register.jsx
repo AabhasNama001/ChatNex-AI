@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { toast } from "react-toastify";
+import { FaEye, FaEyeSlash } from "react-icons/fa"; // 👈 imported from react-icons
 
 const NUM_PARTICLES = 30;
 const NUM_BLOBS = 6;
@@ -13,6 +14,7 @@ const Register = () => {
     lastname: "",
     password: "",
   });
+  const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
   const backgroundRef = useRef(null);
@@ -26,6 +28,23 @@ const Register = () => {
 
   async function handleSubmit(e) {
     e.preventDefault();
+    const { firstname, lastname, email, password } = form;
+
+    // --- Validation ---
+    if (!firstname || !lastname || !email || !password) {
+      toast.error("Please fill in all fields.");
+      return;
+    }
+    if (!email.includes("@")) {
+      toast.error("Please enter a valid email address.");
+      return;
+    }
+    if (password.length < 6) {
+      toast.error("Password must be at least 6 characters long.");
+      return;
+    }
+    // --- End Validation ---
+
     setSubmitting(true);
 
     try {
@@ -42,12 +61,13 @@ const Register = () => {
         { withCredentials: true }
       );
 
-      console.log(res);
       navigate("/login");
       toast.success("Registration successful! Please log in.");
     } catch (err) {
       console.error(err);
-      alert("Registration failed (placeholder)");
+      const errorMessage =
+        err.response?.data?.message || "Registration failed. Please try again.";
+      toast.error(errorMessage);
     } finally {
       setSubmitting(false);
     }
@@ -57,7 +77,6 @@ const Register = () => {
     const width = window.innerWidth;
     const height = window.innerHeight;
 
-    // Initialize particles
     particlesRef.current = [...Array(NUM_PARTICLES)].map(() => ({
       x: Math.random() * width,
       y: Math.random() * height,
@@ -67,7 +86,6 @@ const Register = () => {
       vy: (Math.random() - 0.5) * 0.5,
     }));
 
-    // Initialize blobs
     blobsRef.current = [...Array(NUM_BLOBS)].map(() => ({
       x: Math.random() * width,
       y: Math.random() * height,
@@ -77,6 +95,7 @@ const Register = () => {
       vy: (Math.random() - 0.5) * 0.2,
     }));
 
+    let animationFrameId;
     const animate = () => {
       particlesRef.current.forEach((p) => {
         p.x += p.vx;
@@ -99,8 +118,7 @@ const Register = () => {
       if (backgroundRef.current) {
         backgroundRef.current.innerHTML = "";
 
-        // Draw particles
-        particlesRef.current.forEach((p, i) => {
+        particlesRef.current.forEach((p) => {
           const span = document.createElement("span");
           span.style.position = "absolute";
           span.style.width = `${p.size}px`;
@@ -113,8 +131,7 @@ const Register = () => {
           backgroundRef.current.appendChild(span);
         });
 
-        // Draw blobs
-        blobsRef.current.forEach((b, i) => {
+        blobsRef.current.forEach((b) => {
           const span = document.createElement("span");
           span.style.position = "absolute";
           span.style.width = `${b.size}px`;
@@ -128,17 +145,18 @@ const Register = () => {
         });
       }
 
-      requestAnimationFrame(animate);
+      animationFrameId = requestAnimationFrame(animate);
     };
 
     animate();
+
+    return () => cancelAnimationFrame(animationFrameId);
   }, []);
 
   return (
     <div className="relative min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-[#030c18] to-[#383451] text-[var(--text-color)] overflow-hidden">
       <div ref={backgroundRef} className="absolute inset-0 z-0"></div>
 
-      {/* Form card */}
       <div className="w-full max-w-2xl rounded-2xl shadow-lg p-8 bg-gradient-to-br from-[#0000ff]/10 to-[#030c18] border-2 border-gray-400 text-[var(--text-color)] z-10">
         <header className="mb-6">
           <h1 className="text-2xl font-semibold">Create account</h1>
@@ -194,26 +212,42 @@ const Register = () => {
             />
           </label>
 
+          {/* --- PASSWORD FIELD WITH TOGGLE --- */}
           <label className="block sm:col-span-2">
             <span className="text-sm text-[var(--muted-color)]">Password</span>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              value={form.password}
-              onChange={handleChange}
-              placeholder="Create a password"
-              minLength={6}
-              required
-              className="mt-1 block w-full rounded-md px-3 py-2 border border-gray-300 bg-[var(--bg-color)] text-[var(--text-color)] focus:border-[var(--accent-color)] focus:ring focus:ring-[var(--accent-color)]"
-            />
+            <div className="relative mt-1">
+              <input
+                id="password"
+                name="password"
+                type={showPassword ? "text" : "password"}
+                value={form.password}
+                onChange={handleChange}
+                placeholder="Create a password"
+                minLength={6}
+                required
+                className="block w-full rounded-md px-3 py-2 border border-gray-300 bg-[var(--bg-color)] text-[var(--text-color)] focus:border-[var(--accent-color)] focus:ring focus:ring-[var(--accent-color)] pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-white"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? (
+                  <FaEyeSlash className="h-5 w-5" />
+                ) : (
+                  <FaEye className="h-5 w-5" />
+                )}
+              </button>
+            </div>
           </label>
+          {/* --- End of Password Field --- */}
 
           <div className="sm:col-span-2">
             <button
               type="submit"
               disabled={submitting}
-              className="w-full rounded-md py-2 font-medium shadow-md transition bg-[var(--accent-color)] text-white hover:bg-[var(--accent-hover)]"
+              className="w-full rounded-md py-2 font-medium shadow-md transition bg-[var(--accent-color)] text-white hover:bg-[var(--accent-hover)] disabled:bg-gray-500 disabled:cursor-not-allowed"
             >
               {submitting ? "Creating..." : "Create account"}
             </button>

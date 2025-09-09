@@ -3,12 +3,14 @@ import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { AuthContext } from "../context/AuthContext";
 import { toast } from "react-toastify";
+import { FaEye, FaEyeSlash } from "react-icons/fa"; // 👈 Import icons
 
 const NUM_PARTICLES = 30;
 const NUM_BLOBS = 6;
 
 const Login = () => {
   const [form, setForm] = useState({ email: "", password: "" });
+  const [showPassword, setShowPassword] = useState(false); // 👈 Toggle state
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
@@ -24,6 +26,23 @@ const Login = () => {
 
   async function handleSubmit(e) {
     e.preventDefault();
+
+    // --- 1. VALIDATION ---
+    const { email, password } = form;
+    if (!email || !password) {
+      toast.error("Please fill in all fields.");
+      return;
+    }
+    if (!email.includes("@")) {
+      toast.error("Please enter a valid email address.");
+      return;
+    }
+    if (password.length < 6) {
+      toast.error("Password must be at least 6 characters long.");
+      return;
+    }
+    // --- End of validation ---
+
     setSubmitting(true);
     setError("");
 
@@ -39,7 +58,10 @@ const Login = () => {
       toast.success("Login successful!");
     } catch (err) {
       console.error(err.response?.data || err.message);
-      setError(err.response?.data?.message || "Login failed");
+      const errorMessage =
+        err.response?.data?.message || "Login failed. Please try again.";
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setSubmitting(false);
     }
@@ -140,6 +162,7 @@ const Login = () => {
         )}
 
         <form onSubmit={handleSubmit} className="grid gap-4">
+          {/* Email */}
           <label className="block">
             <span className="text-sm text-[var(--muted-color)]">Email</span>
             <input
@@ -154,18 +177,33 @@ const Login = () => {
             />
           </label>
 
+          {/* Password with toggle */}
           <label className="block">
             <span className="text-sm text-[var(--muted-color)]">Password</span>
-            <input
-              name="password"
-              type="password"
-              value={form.password}
-              onChange={handleChange}
-              placeholder="••••••••"
-              autoComplete="current-password"
-              required
-              className="mt-1 block w-full rounded-md px-3 py-2 border border-gray-300 bg-[var(--bg-color)] text-[var(--text-color)] focus:border-[var(--accent-color)] focus:ring focus:ring-[var(--accent-color)]"
-            />
+            <div className="relative mt-1">
+              <input
+                name="password"
+                type={showPassword ? "text" : "password"}
+                value={form.password}
+                onChange={handleChange}
+                placeholder="••••••••"
+                autoComplete="current-password"
+                required
+                minLength={6}
+                className="block w-full rounded-md px-3 py-2 border border-gray-300 bg-[var(--bg-color)] text-[var(--text-color)] focus:border-[var(--accent-color)] focus:ring focus:ring-[var(--accent-color)] pr-10"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-white"
+              >
+                {showPassword ? (
+                  <FaEyeSlash className="h-5 w-5" />
+                ) : (
+                  <FaEye className="h-5 w-5" />
+                )}
+              </button>
+            </div>
           </label>
 
           <button
