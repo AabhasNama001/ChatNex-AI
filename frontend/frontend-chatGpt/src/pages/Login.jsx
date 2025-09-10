@@ -48,7 +48,7 @@ const Login = () => {
 
     try {
       const res = await axios.post(
-        "http://localhost:3000/api/auth/login",
+        "https://chatnex-ai.onrender.com/api/auth/login",
         { email: form.email, password: form.password },
         { withCredentials: true }
       );

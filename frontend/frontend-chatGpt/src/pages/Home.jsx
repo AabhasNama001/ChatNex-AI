@@ -106,7 +106,7 @@ const Home = () => {
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const response = await axios.get("http://localhost:3000/api/auth/me", {
+        const response = await axios.get("https://chatnex-ai.onrender.com/api/auth/me", {
           withCredentials: true,
         });
         setUser(response.data.user);
@@ -117,14 +117,14 @@ const Home = () => {
 
     const setupChats = async () => {
       try {
-        const res = await axios.get("http://localhost:3000/api/chat", {
+        const res = await axios.get("https://chatnex-ai.onrender.com/api/chat", {
           withCredentials: true,
         });
         let chatsData = res.data.chats;
 
         if (chatsData.length === 0) {
           const response = await axios.post(
-            "http://localhost:3000/api/chat",
+            "https://chatnex-ai.onrender.com/api/chat",
             { title: "Welcome Chat" },
             { withCredentials: true }
           );
@@ -147,7 +147,7 @@ const Home = () => {
     fetchUser();
     setupChats();
 
-    const tempSocket = io("http://localhost:3000", { withCredentials: true });
+    const tempSocket = io("https://chatnex-ai.onrender.com", { withCredentials: true });
     tempSocket.on("ai-message-response", (messagePayload) => {
       setMessages((prev) => [
         ...prev,
@@ -165,7 +165,7 @@ const Home = () => {
     if (!title) return;
     try {
       const response = await axios.post(
-        "http://localhost:3000/api/chat",
+        "https://chatnex-ai.onrender.com/api/chat",
         { title },
         { withCredentials: true }
       );
@@ -185,7 +185,7 @@ const Home = () => {
   const getMessages = async (chatId) => {
     try {
       const res = await axios.get(
-        `http://localhost:3000/api/chat/messages/${chatId}`,
+        `https://chatnex-ai.onrender.com/api/chat/messages/${chatId}`,
         { withCredentials: true }
       );
       setMessages(
@@ -213,7 +213,7 @@ const Home = () => {
   const confirmDeleteChat = async () => {
     if (!chatToDelete) return;
     try {
-      await axios.delete(`http://localhost:3000/api/chat/${chatToDelete}`, {
+      await axios.delete(`https://chatnex-ai.onrender.com/api/chat/${chatToDelete}`, {
         withCredentials: true,
       });
       setChats((prev) => prev.filter((c) => c._id !== chatToDelete));

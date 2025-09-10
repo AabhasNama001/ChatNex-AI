@@ -3,7 +3,7 @@
 An advanced real-time **AI-powered chat application** built with **Node.js**, **Express**, **Socket.io**, **MongoDB**, **Vector Database**, **React.js**, and **Tailwind CSS**.  
 ChatNex AI enables users to interact with AI in a smooth, responsive, and modern UI — combining real-time messaging with intelligent responses.  
 
-🌐 Live Demo: [ChatNex AI](http://localhost:3000/)  
+🌐 Live Demo: [ChatNex AI](https://chatnex-ai.onrender.com/)  
 
 ---
 

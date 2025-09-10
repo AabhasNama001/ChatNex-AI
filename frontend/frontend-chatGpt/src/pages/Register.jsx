@@ -49,7 +49,7 @@ const Register = () => {
 
     try {
       const res = await axios.post(
-        "http://localhost:3000/api/auth/register",
+        "https://chatnex-ai.onrender.com/api/auth/register",
         {
           email: form.email,
           fullName: {
