@@ -210,17 +210,66 @@ const Home = () => {
     setDeleteModalOpen(true);
   };
 
+  // const confirmDeleteChat = async () => {
+  //   if (!chatToDelete) return;
+  //   try {
+  //     await axios.delete(`https://chatnex-ai.onrender.com/api/chat/${chatToDelete}`, {
+  //       withCredentials: true,
+  //     });
+  //     setChats((prev) => prev.filter((c) => c._id !== chatToDelete));
+  //     if (activeChatId === chatToDelete) {
+  //       setActiveChatId(null);
+  //       setMessages([]);
+  //     }
+  //     toast.success("Chat deleted!");
+  //   } catch (error) {
+  //     console.error("Error deleting chat:", error);
+  //     toast.error("Failed to delete chat.");
+  //   } finally {
+  //     setDeleteModalOpen(false);
+  //     setChatToDelete(null);
+  //   }
+  // };
+
   const confirmDeleteChat = async () => {
     if (!chatToDelete) return;
     try {
       await axios.delete(`https://chatnex-ai.onrender.com/api/chat/${chatToDelete}`, {
         withCredentials: true,
       });
-      setChats((prev) => prev.filter((c) => c._id !== chatToDelete));
+
+      // Create the new list of chats without the deleted one
+      const updatedChats = chats.filter((c) => c._id !== chatToDelete);
+
+      // --- Main Logic Change Starts Here ---
+
       if (activeChatId === chatToDelete) {
-        setActiveChatId(null);
-        setMessages([]);
+        // Case 1: The ACTIVE chat was deleted
+        if (updatedChats.length > 0) {
+          // If other chats remain, switch to the first one
+          const newActiveChat = updatedChats[0];
+          setChats(updatedChats); // Update the list
+          setActiveChatId(newActiveChat._id);
+          getMessages(newActiveChat._id);
+        } else {
+          // If it was the LAST chat, create a new one
+          const response = await axios.post(
+            "https://chatnex-ai.onrender.com/api/chat",
+            { title: "New Chat" },
+            { withCredentials: true }
+          );
+          const newChat = response.data.chat;
+          setChats([newChat]); // Update the list with ONLY the new chat
+          setActiveChatId(newChat._id);
+          setMessages([]);
+        }
+      } else {
+        // Case 2: A NON-ACTIVE chat was deleted, just update the list
+        setChats(updatedChats);
       }
+
+      // --- End of Main Logic Change ---
+
       toast.success("Chat deleted!");
     } catch (error) {
       console.error("Error deleting chat:", error);
@@ -358,12 +407,9 @@ const Home = () => {
           ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
         >
           <div className="flex items-center justify-between mb-4">
-            <div className="hidden lg:flex items-center gap-3">
+            <div className="lg:flex items-center gap-3">
               <img src="/logo.png" alt="Logo" className="h-12 w-auto" />
             </div>
-            <h2 className="text-gray-800 dark:text-gray-200 text-lg font-semibold lg:hidden">
-              Chats
-            </h2>
             <button
               onClick={() => setSidebarOpen(false)}
               className="p-2 text-gray-600 dark:text-gray-200 hover:text-red-500 dark:hover:text-red-400 lg:hidden"
@@ -629,15 +675,20 @@ const Home = () => {
             </div>
           ) : messages.length === 0 ? (
             <div className="flex-1 flex flex-col justify-center items-center text-center">
-              <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-semibold text-blue-600 dark:text-blue-400">
+              {/* <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-semibold text-blue-600 dark:text-blue-400">
                 ChatNex
-              </h1>
+              </h1> */}
+              <img
+                src="/logo.png"
+                alt="Logo"
+                className="h-15 sm:h-20 lg:h-25 2xl:h-30 w-auto"
+              />
               <p className="text-gray-600 dark:text-gray-400 mt-4 sm:mt-5 text-sm sm:text-base mb-8">
                 🚀 Welcome! How can I help you today?
                 <br />
                 Select a suggestion below or type your own message to start.
               </p>
-              <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 mt-6">
+              <div className="w-full max-w-4xl grid grid-cols-1 min-[450px]:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 mt-2">
                 {promptSuggestions.map((prompt, index) => (
                   <button
                     key={index}
