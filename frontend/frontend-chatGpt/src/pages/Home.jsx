@@ -13,6 +13,11 @@ import {
   Plus,
   AlertTriangle,
   Pin,
+  Sparkles,
+  Smile,
+  Zap,
+  Volume2,
+  Square,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
@@ -26,6 +31,7 @@ const Home = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [socket, setSocket] = useState(null);
   const [copiedIndex, setCopiedIndex] = useState(null);
+  const [speakingMessageIndex, setSpeakingMessageIndex] = useState(null);
 
   // Modal states
   const [newChatModalOpen, setNewChatModalOpen] = useState(false);
@@ -98,30 +104,50 @@ const Home = () => {
 
   // Load initial data (chats, user) & setup socket
   useEffect(() => {
-    // Fetch user data from the new backend endpoint
     const fetchUser = async () => {
       try {
-        const response = await axios.get("https://chatnex-ai.onrender.com/api/auth/me", {
+        const response = await axios.get("http://localhost:3000/api/auth/me", {
           withCredentials: true,
         });
-        // The backend now returns a user object with a combined `name` property
         setUser(response.data.user);
       } catch (error) {
         console.error("Failed to fetch user data", error);
-        // If the token is invalid or expired, you might want to redirect to the login page
-        // navigate('/login');
       }
     };
+
+    const setupChats = async () => {
+      try {
+        const res = await axios.get("http://localhost:3000/api/chat", {
+          withCredentials: true,
+        });
+        let chatsData = res.data.chats;
+
+        if (chatsData.length === 0) {
+          const response = await axios.post(
+            "http://localhost:3000/api/chat",
+            { title: "Welcome Chat" },
+            { withCredentials: true }
+          );
+          const welcomeChat = response.data.chat;
+          setChats([welcomeChat]);
+          setActiveChatId(welcomeChat._id);
+          setMessages([]);
+        } else {
+          const reversedChats = chatsData.reverse();
+          setChats(reversedChats);
+          setActiveChatId(reversedChats[0]._id);
+          getMessages(reversedChats[0]._id);
+        }
+      } catch (error) {
+        console.error("Error setting up chats:", error);
+        toast.error("Could not load chats.");
+      }
+    };
+
     fetchUser();
+    setupChats();
 
-    // Fetch chats
-    axios
-      .get("https://chatnex-ai.onrender.com/api/chat", { withCredentials: true })
-      .then((res) => setChats(res.data.chats.reverse()))
-      .catch(console.error);
-
-    // Setup socket
-    const tempSocket = io("https://chatnex-ai.onrender.com", { withCredentials: true });
+    const tempSocket = io("http://localhost:3000", { withCredentials: true });
     tempSocket.on("ai-message-response", (messagePayload) => {
       setMessages((prev) => [
         ...prev,
@@ -134,20 +160,19 @@ const Home = () => {
     return () => tempSocket.disconnect();
   }, []);
 
-  // Create new chat
   const createNewChat = async () => {
     const title = newChatTitle.trim();
     if (!title) return;
     try {
       const response = await axios.post(
-        "https://chatnex-ai.onrender.com/api/chat",
+        "http://localhost:3000/api/chat",
         { title },
         { withCredentials: true }
       );
       const chat = response.data.chat;
       setChats((prev) => [chat, ...prev]);
       setActiveChatId(chat._id);
-      getMessages(chat._id);
+      setMessages([]);
       setSidebarOpen(false);
       setNewChatTitle("");
       setNewChatModalOpen(false);
@@ -157,11 +182,10 @@ const Home = () => {
     }
   };
 
-  // Fetch messages
   const getMessages = async (chatId) => {
     try {
       const res = await axios.get(
-        `https://chatnex-ai.onrender.com/api/chat/messages/${chatId}`,
+        `http://localhost:3000/api/chat/messages/${chatId}`,
         { withCredentials: true }
       );
       setMessages(
@@ -175,7 +199,6 @@ const Home = () => {
     }
   };
 
-  // Select chat
   const selectChat = (id) => {
     setActiveChatId(id);
     getMessages(id);
@@ -190,7 +213,7 @@ const Home = () => {
   const confirmDeleteChat = async () => {
     if (!chatToDelete) return;
     try {
-      await axios.delete(`https://chatnex-ai.onrender.com/api/chat/${chatToDelete}`, {
+      await axios.delete(`http://localhost:3000/api/chat/${chatToDelete}`, {
         withCredentials: true,
       });
       setChats((prev) => prev.filter((c) => c._id !== chatToDelete));
@@ -208,20 +231,58 @@ const Home = () => {
     }
   };
 
-  const sendMessage = async (e) => {
-    e?.preventDefault?.();
-    const text = input.trim();
-    if (!text || !activeChatId || isSending) return;
+  const handleSendMessage = async (messageText) => {
+    const text = messageText.trim();
+    if (!text || !activeChatId || isSending) {
+      if (!activeChatId) {
+        toast.info("Please select a chat first to send a message.");
+      }
+      return;
+    }
     setIsSending(true);
     setMessages((prev) => [...prev, { type: "user", content: text }]);
     setInput("");
     socket.emit("ai-message", { chat: activeChatId, content: text });
   };
 
+  const handleFormSubmit = (e) => {
+    e.preventDefault();
+    handleSendMessage(input);
+  };
+
   const handleCopy = (text, index) => {
     navigator.clipboard.writeText(text);
     setCopiedIndex(index);
     setTimeout(() => setCopiedIndex(null), 1500);
+  };
+
+  const handleSpeak = (text, index) => {
+    if (!("speechSynthesis" in window)) {
+      toast.error("Sorry, your browser doesn't support text-to-speech.");
+      return;
+    }
+
+    if (window.speechSynthesis.speaking && speakingMessageIndex === index) {
+      window.speechSynthesis.cancel();
+      setSpeakingMessageIndex(null);
+      return;
+    }
+
+    if (window.speechSynthesis.speaking) {
+      window.speechSynthesis.cancel();
+    }
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.onend = () => {
+      setSpeakingMessageIndex(null);
+    };
+    utterance.onerror = () => {
+      setSpeakingMessageIndex(null);
+      toast.error("An error occurred during speech synthesis.");
+    };
+
+    setSpeakingMessageIndex(index);
+    window.speechSynthesis.speak(utterance);
   };
 
   const togglePinChat = (chatId) => {
@@ -247,6 +308,21 @@ const Home = () => {
       </div>
     );
   };
+
+  const promptSuggestions = [
+    {
+      icon: <Sparkles size={24} className="text-blue-400" />,
+      text: "What is your name and who built you?",
+    },
+    {
+      icon: <Smile size={24} className="text-yellow-400" />,
+      text: "Can you tell me a cheesy joke to make my day?",
+    },
+    {
+      icon: <Zap size={24} className="text-green-400" />,
+      text: "If I’m feeling lazy today, can you motivate me in 3 lines?",
+    },
+  ];
 
   return (
     <div className="chat-layout h-screen flex flex-col bg-gray-100 dark:bg-gradient-to-br dark:from-black dark:to-[#35354b]">
@@ -393,7 +469,6 @@ const Home = () => {
                   {filteredUnpinned.length > 0 ? (
                     filteredUnpinned.map((c) => (
                       <li key={c._id} className="relative group">
-                        {/* The main clickable element is a DIV, not a BUTTON */}
                         <div
                           role="button"
                           tabIndex="0"
@@ -410,8 +485,6 @@ const Home = () => {
                           <span className="truncate min-w-0 pr-2">
                             {c.title}
                           </span>
-
-                          {/* These inner buttons are now valid because their parent is a DIV */}
                           <div className="flex items-center flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                             <button
                               onClick={(e) => {
@@ -445,9 +518,7 @@ const Home = () => {
             </div>
           </div>
 
-          {/* Sidebar Footer */}
           <div className="mt-auto pt-4 border-t border-gray-200 dark:border-gray-800">
-            {/* User Profile Section */}
             {user && user.name && (
               <div className="p-2 rounded-lg mb-2 transition-colors">
                 <div className="flex items-center gap-3">
@@ -547,29 +618,39 @@ const Home = () => {
         )}
 
         <main className="flex-1 flex flex-col w-full max-w-full md:max-w-2xl lg:max-w-xl xl:max-w-3xl 2xl:max-w-4xl mx-auto p-4 sm:p-6 text-gray-900 dark:text-gray-200 relative">
-          {!messages.length ? (
-            <div className="flex-1 flex flex-col justify-center items-center mt-10 sm:mt-20 text-center">
+          {!activeChatId ? (
+            <div className="flex-1 flex flex-col justify-center items-center text-center">
+              <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-semibold text-blue-600 dark:text-blue-400">
+                Loading Chat...
+              </h1>
+              <p className="text-gray-600 dark:text-gray-400 mt-4 sm:mt-5 text-sm sm:text-base">
+                Please wait while we get things ready for you.
+              </p>
+            </div>
+          ) : messages.length === 0 ? (
+            <div className="flex-1 flex flex-col justify-center items-center text-center">
               <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-semibold text-blue-600 dark:text-blue-400">
                 ChatNex
               </h1>
-              <p className="text-gray-600 dark:text-gray-400 mt-4 sm:mt-5 text-sm sm:text-base">
-                🚀{" "}
-                {chats.length === 0 ? (
-                  <>
-                    Wanna start exploring, Commander? <br /> Head over to the
-                    sidebar and hit{" "}
-                    <span className="text-blue-500 dark:text-blue-400 font-semibold">
-                      "+ New Chat"
-                    </span>{" "}
-                    to launch your first mission!
-                  </>
-                ) : (
-                  <>
-                    Ready for action? <br /> Go to the sidebar and choose a chat
-                    to continue your journey!
-                  </>
-                )}
+              <p className="text-gray-600 dark:text-gray-400 mt-4 sm:mt-5 text-sm sm:text-base mb-8">
+                🚀 Welcome! How can I help you today?
+                <br />
+                Select a suggestion below or type your own message to start.
               </p>
+              <div className="w-full max-w-4xl grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 mt-6">
+                {promptSuggestions.map((prompt, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handleSendMessage(prompt.text)}
+                    className="group flex flex-col justify-between text-left p-4 rounded-xl bg-white/50 dark:bg-blue-500/10 border border-gray-200 dark:border-blue-900/50 hover:border-blue-500 dark:hover:bg-blue-500/20 transition-all duration-300 transform hover:-translate-y-1"
+                  >
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300 group-hover:text-black dark:group-hover:text-white">
+                      {prompt.text}
+                    </p>
+                    <div className="self-end mt-3">{prompt.icon}</div>
+                  </button>
+                ))}
+              </div>
             </div>
           ) : (
             <div className="flex-1 w-full overflow-y-auto space-y-3 pr-2 sm:pr-4 custom-scrollbar">
@@ -608,26 +689,43 @@ const Home = () => {
                     ) : (
                       m.content
                     )}
-                    <button
-                      onClick={() => handleCopy(m.content, i)}
-                      className={`absolute bottom-2 right-2 p-1 rounded opacity-0 group-hover:opacity-100 transition ${
-                        m.type === "user"
-                          ? "bg-blue-600 hover:bg-blue-700 text-white"
-                          : "bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600"
-                      } flex items-center`}
-                      title="Copy message"
-                    >
-                      {copiedIndex === i ? (
-                        <Check size={14} />
-                      ) : (
-                        <Copy size={14} />
-                      )}
-                    </button>
-                    {copiedIndex === i && (
-                      <span className="absolute -bottom-5 right-2 text-xs bg-gray-900 text-white px-2 py-1 rounded shadow">
-                        Copied!
-                      </span>
-                    )}
+                    <div className="absolute bottom-1 right-1 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => handleSpeak(m.content, i)}
+                        className={`p-1.5 rounded ${
+                          m.type === "user"
+                            ? "hover:bg-blue-600 text-white"
+                            : "hover:bg-gray-200 dark:hover:bg-gray-700"
+                        }`}
+                        title={
+                          speakingMessageIndex === i ? "Stop" : "Read aloud"
+                        }
+                      >
+                        {speakingMessageIndex === i ? (
+                          <Square
+                            size={14}
+                            className="animate-pulse text-red-500"
+                          />
+                        ) : (
+                          <Volume2 size={14} />
+                        )}
+                      </button>
+                      <button
+                        onClick={() => handleCopy(m.content, i)}
+                        className={`p-1.5 rounded ${
+                          m.type === "user"
+                            ? "hover:bg-blue-600 text-white"
+                            : "hover:bg-gray-200 dark:hover:bg-gray-700"
+                        }`}
+                        title="Copy message"
+                      >
+                        {copiedIndex === i ? (
+                          <Check size={14} />
+                        ) : (
+                          <Copy size={14} />
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -636,7 +734,10 @@ const Home = () => {
           )}
 
           {activeChatId && (
-            <form onSubmit={sendMessage} className="w-full flex mt-4 gap-2">
+            <form
+              onSubmit={handleFormSubmit}
+              className="w-full flex mt-4 gap-2"
+            >
               <input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
