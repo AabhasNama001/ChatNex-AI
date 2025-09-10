@@ -327,7 +327,7 @@ const Home = () => {
     };
     utterance.onerror = () => {
       setSpeakingMessageIndex(null);
-      toast.error("An error occurred during speech synthesis.");
+      toast.clearWaitingQueue("Stopped");
     };
 
     setSpeakingMessageIndex(index);
@@ -464,7 +464,7 @@ const Home = () => {
                               e.stopPropagation();
                               openDeleteConfirmation(c._id);
                             }}
-                            className="p-1 text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400 opacity-0 group-hover:opacity-100"
+                            className="p-1 text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400"
                           >
                             ✕
                           </button>
@@ -722,7 +722,7 @@ const Home = () => {
                     {m.type === "user" ? "You" : "AI"}
                   </div>
                   <div
-                    className={`relative group p-3 rounded-lg break-words max-w-[90%] sm:max-w-[80%] md:max-w-[75%] ${
+                    className={`relative group p-3 mb-6 rounded-lg break-words max-w-[90%] sm:max-w-[80%] md:max-w-[75%] ${
                       m.type === "user"
                         ? "bg-blue-500 text-white"
                         : "bg-white dark:bg-blue-500/20 text-gray-800 dark:text-gray-200"
@@ -740,7 +740,7 @@ const Home = () => {
                     ) : (
                       m.content
                     )}
-                    <div className="absolute bottom-1 right-1 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="absolute -bottom-8 right-1 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
                         onClick={() => handleSpeak(m.content, i)}
                         className={`p-1.5 rounded ${
