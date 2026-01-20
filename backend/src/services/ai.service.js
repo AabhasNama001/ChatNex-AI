@@ -48,40 +48,34 @@ async function withRetry(fn, retries = 4, delay = 1000) {
  */
 async function generateResponse(content) {
   try {
+    // 1. Initialize model with System Instruction
     const model = genAI.getGenerativeModel({
       model: "gemini-1.5-flash",
       systemInstruction: SYSTEM_INSTRUCTION,
     });
 
-    // SIMPLIFIED CALL: The SDK handles wrapping the string into the correct Proto format
+    // 2. Pass the content directly as a string or a simple Part object.
+    // Do NOT wrap it in [{role: 'user', parts: [...]}] manually.
     const result = await withRetry(() => model.generateContent(content));
 
+    // 3. result.response is a promise that resolves to the actual response object
     const response = await result.response;
     return response.text();
   } catch (err) {
-    console.error("AI Response Error:", err.message);
-    // Log the full error to Render logs once to see the hidden details
-    if (err.response)
-      console.error("Full Error Body:", JSON.stringify(err.response, null, 2));
-
+    // Log detailed error for debugging
+    console.error("AI Response Error:", err);
     return "⚠️ Sorry, I’m a bit overloaded right now. Please try again in a moment!";
   }
 }
-
 /**
  * Generates a vector embedding for the given content
  */
 async function generateVector(content) {
   try {
-    // text-embedding-004 is the current standard for high-quality vectors
     const model = genAI.getGenerativeModel({ model: "text-embedding-004" });
 
-    const result = await withRetry(() =>
-      model.embedContent({
-        content: { parts: [{ text: content }] },
-        outputDimensionality: 768,
-      }),
-    );
+    // The SDK handles the wrapping here too
+    const result = await withRetry(() => model.embedContent(content));
 
     return result.embedding.values;
   } catch (err) {

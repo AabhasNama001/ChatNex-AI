@@ -40,161 +40,108 @@ function initSocketServer(httpServer) {
     /*  console.log("User Connected", socket.user);
     console.log("New Socket connection:", socket.id); */
 
+    // ... (Auth and connection code remains same)
+
     socket.on("ai-message", async (messagePayload) => {
-      console.log(messagePayload);
-
-      /* 
-      // Task1: User message save in DB
-      const message = await messageModel.create({
-        chat: messagePayload.chat,
-        content: messagePayload.content,
-        user: socket.user._id,
-        role: "user",
-      });
-
-      // Task2: Conversion of our message into vector
-      const vectors = await aiService.generateVector(messagePayload.content); 
-      */
-
-      // These two tasks are independent of each other so we can do both of them together
-      // This optimize our code as lesser time will be taken
-      // Task1: User message save in DB
-      const [message, vectors] = await Promise.all([
-        messageModel.create({
-          chat: messagePayload.chat,
-          content: messagePayload.content,
-          user: socket.user._id,
-          role: "user",
-        }),
-        // Task2: Conversion of our message into vector
-        aiService.generateVector(messagePayload.content),
-      ]);
-
-      // Task3: Storing the converted message in vector database(Pinecone)
-      createMemory({
-        vectors,
-        messageId: message._id,
-        metadata: {
-          chat: messagePayload.chat,
-          user: socket.user._id,
-          text: messagePayload.content,
-        },
-      });
-
-      /* 
-      // Task4: Query Pinecone for related memories
-      const memory = await queryMemory({
-        queryVector: vectors,
-        limit: 3,
-        metadata: {
-          user: socket.user._id,
-        },
-      });
-      */
-
-      /*
-     // Task5: Get chat history from the DB
-      const chatHistory = (
-        await messageModel
-          .find({
+      try {
+        // Task 1 & 2: Save and Vectorize
+        const [message, vectors] = await Promise.all([
+          messageModel.create({
             chat: messagePayload.chat,
-          })
-          .sort({ createdAt: -1 })
-          .limit(20)
-          .lean()
-      ).reverse();
-      */
-
-      const [memory, chatHistoryRaw] = await Promise.all([
-        // Task4: Query Pinecone for related memories
-        queryMemory({
-          queryVector: vectors,
-          limit: 3,
-          metadata: {
+            content: messagePayload.content,
             user: socket.user._id,
-          },
-        }),
-        // Task5: Get chat history from the DB (latest 20)
-        messageModel
-          .find({ chat: messagePayload.chat })
-          .sort({ createdAt: -1 })
-          .limit(20)
-          .lean(),
-      ]);
-      // reverse after awaiting, so it's oldest → newest
-      const chatHistory = chatHistoryRaw.reverse();
+            role: "user",
+          }),
+          aiService.generateVector(messagePayload.content),
+        ]);
 
-      const shortTermMemory = chatHistory.map((item) => {
-        return {
-          role: item.role,
-          parts: [{ text: item.content }],
-        };
-      });
-
-      const longTermMemory = [
-        {
-          role: "user",
-          parts: [
-            {
-              text: `
-          these are some previous messages from the chat, use them to generate a response.
-
-          ${memory.map((item) => item.metadata.text).join("\n")}
-          `,
+        // Guard Clause for Vector Storage
+        if (vectors) {
+          createMemory({
+            vectors,
+            messageId: message._id,
+            metadata: {
+              chat: messagePayload.chat,
+              user: socket.user._id,
+              text: messagePayload.content,
             },
-          ],
-        },
-      ];
+          });
+        }
 
-      // Task6: Generate Response of the message from AI.
-      const response = await aiService.generateResponse([
-        ...longTermMemory,
-        ...shortTermMemory,
-      ]);
+        // Task 4 & 5: Retrieve Memory and History
+        const [memory, chatHistoryRaw] = await Promise.all([
+          queryMemory({
+            queryVector: vectors,
+            limit: 3,
+            metadata: { user: socket.user._id },
+          }),
+          messageModel
+            .find({ chat: messagePayload.chat })
+            .sort({ createdAt: -1 })
+            .limit(20)
+            .lean(),
+        ]);
 
-      /*
-        // Task7: Save AI Response in DB 
-        const responseMessage = await messageModel.create({
-        chat: messagePayload.chat,
-        content: response,
-        user: socket.user._id,
-        role: "model",
-      });
-      */
+        const chatHistory = chatHistoryRaw.reverse();
 
-      /*
-      // Task8: AI Response will now again converted into vector
-      const responseVectors = await aiService.generateVector(response);
-      */
+        // Task 6: Prepare Payload for Gemini
+        // We combine the memories into a single context block
+        const contextFromMemory =
+          memory.length > 0
+            ? `Context from previous conversations:\n${memory.map((item) => item.metadata.text).join("\n")}\n\n`
+            : "";
 
-      // Task10(final): Send AI response to the user
-      socket.emit("ai-message-response", {
-        content: response,
-        chat: messagePayload.chat,
-      });
+        const shortTermMemory = chatHistory.map((item) => ({
+          role: item.role === "model" ? "model" : "user", // Ensure correct role mapping
+          parts: [{ text: item.content }],
+        }));
 
-      const [responseMessage, responseVectors] = await Promise.all([
-        // Task7: Save AI Response in DB
-        messageModel.create({
-          chat: messagePayload.chat,
+        // IMPORTANT: Inject the long-term memory into the current prompt or the first message
+        const fullConversation = [...shortTermMemory];
+
+        // Add the RAG context to the last message to keep it relevant
+        if (fullConversation.length > 0) {
+          fullConversation[fullConversation.length - 1].parts[0].text =
+            contextFromMemory +
+            fullConversation[fullConversation.length - 1].parts[0].text;
+        }
+
+        // Task 6: Generate Response
+        // Pass the full array to generateResponse
+        const response = await aiService.generateResponse(fullConversation);
+
+        // Task 10: Immediate UI Feedback
+        socket.emit("ai-message-response", {
           content: response,
-          user: socket.user._id,
-          role: "model",
-        }),
-        // Task8: Generate vector for AI response
-        aiService.generateVector(response),
-      ]);
-
-      // Task9: The converted response is now stored in vector database
-      await createMemory({
-        vectors: responseVectors,
-        messageId: responseMessage._id,
-        metadata: {
           chat: messagePayload.chat,
-          user: socket.user._id,
-          text: response,
-        },
-      });
+        });
+
+        // Task 7, 8, & 9: Post-response processing
+        const [responseMessage, responseVectors] = await Promise.all([
+          messageModel.create({
+            chat: messagePayload.chat,
+            content: response,
+            user: socket.user._id,
+            role: "model",
+          }),
+          aiService.generateVector(response),
+        ]);
+
+        if (responseVectors) {
+          await createMemory({
+            vectors: responseVectors,
+            messageId: responseMessage._id,
+            metadata: {
+              chat: messagePayload.chat,
+              user: socket.user._id,
+              text: response,
+            },
+          });
+        }
+      } catch (error) {
+        console.error("Socket Message Error:", error);
+        socket.emit("error", { message: "Failed to process AI message" });
+      }
     });
   });
 }
