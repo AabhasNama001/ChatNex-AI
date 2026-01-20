@@ -53,27 +53,17 @@ async function generateResponse(content) {
       systemInstruction: SYSTEM_INSTRUCTION,
     });
 
-    const result = await withRetry(() =>
-      model.generateContent({
-        contents: [
-          {
-            role: "user",
-            parts: [{ text: content }], // Ensure content is a string inside the text object
-          },
-        ],
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 512,
-        },
-      }),
-    );
+    // SIMPLIFIED CALL: The SDK handles wrapping the string into the correct Proto format
+    const result = await withRetry(() => model.generateContent(content));
 
-    // .response is a promise-like object, .text() extracts the string
     const response = await result.response;
     return response.text();
   } catch (err) {
-    // Log the full error to see if there's a different schema issue
-    console.error("AI Response Error:", err);
+    console.error("AI Response Error:", err.message);
+    // Log the full error to Render logs once to see the hidden details
+    if (err.response)
+      console.error("Full Error Body:", JSON.stringify(err.response, null, 2));
+
     return "⚠️ Sorry, I’m a bit overloaded right now. Please try again in a moment!";
   }
 }
