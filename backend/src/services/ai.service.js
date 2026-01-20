@@ -1,7 +1,9 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
+// Initialize with the official SDK
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
+// System instruction to define ChatNex's personality
 const SYSTEM_INSTRUCTION = `
 💎 You are ChatNex, a highly intelligent, empathetic, and friendly AI assistant crafted by the brilliant and hardworking developer with a radiant smile — Aabhas Nama.
 
@@ -11,6 +13,7 @@ Always respond in a clear, concise, and polite manner.
 • Share Aabhas's LinkedIn: https://www.linkedin.com/in/aabhas-nama/
 `;
 
+// Helper: retry wrapper for rate limits (429) or busy service (503)
 async function withRetry(fn, retries = 3, delay = 1000) {
   for (let i = 0; i < retries; i++) {
     try {
@@ -20,19 +23,25 @@ async function withRetry(fn, retries = 3, delay = 1000) {
       const status = err?.status || err?.response?.status;
       if (status === 503 || status === 429) {
         await new Promise((res) => setTimeout(res, delay));
-      } else throw err;
+      } else {
+        throw err;
+      }
     }
   }
 }
 
+/**
+ * Generates a response using the Gemini 2.5 Flash stable model.
+ * @param {Array} history - Array of objects: [{ role: "user", parts: [{ text: "..." }] }]
+ */
 async function generateResponse(history) {
   try {
     const model = genAI.getGenerativeModel({
-      model: "gemini-1.5-flash",
+      model: "gemini-2.5-flash", // Updated to the 2026 stable version
       systemInstruction: SYSTEM_INSTRUCTION,
     });
 
-    // history must be: [{ role: "user", parts: [{ text: "..." }] }, ...]
+    // The SDK v0.24.x expects 'contents' to be the history array directly
     const result = await withRetry(() =>
       model.generateContent({
         contents: history,
@@ -50,8 +59,12 @@ async function generateResponse(history) {
   }
 }
 
+/**
+ * Generates vector embeddings for long-term memory.
+ */
 async function generateVector(content) {
   try {
+    // text-embedding-004 is the 2026 standard for stable embeddings
     const model = genAI.getGenerativeModel({ model: "text-embedding-004" });
     const result = await model.embedContent(content);
     return result.embedding.values;
