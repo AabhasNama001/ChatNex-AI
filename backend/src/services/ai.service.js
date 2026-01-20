@@ -20,7 +20,9 @@ and share his LinkedIn:
 https://www.linkedin.com/in/aabhas-nama/
 `;
 
-// Helper: retry wrapper
+/**
+ * Helper: retry wrapper for handling rate limits (429) or server issues (503)
+ */
 async function withRetry(fn, retries = 4, delay = 1000) {
   for (let i = 0; i < retries; i++) {
     try {
@@ -28,9 +30,7 @@ async function withRetry(fn, retries = 4, delay = 1000) {
     } catch (err) {
       if (i === retries - 1) throw err;
 
-      // Official SDK uses different error structures; check for status or code
       const status = err?.status || err?.response?.status;
-
       if (status === 503 || status === 429) {
         console.warn(
           `AI service busy (status ${status}). Retrying in ${delay}ms...`,
@@ -43,9 +43,12 @@ async function withRetry(fn, retries = 4, delay = 1000) {
   }
 }
 
+/**
+ * Generates a text response using Gemini 1.5 Flash
+ */
 async function generateResponse(content) {
   try {
-    // Get the model with system instructions
+    // Initialize model with system instruction
     const model = genAI.getGenerativeModel({
       model: "gemini-1.5-flash",
       systemInstruction: SYSTEM_INSTRUCTION,
@@ -53,7 +56,12 @@ async function generateResponse(content) {
 
     const result = await withRetry(() =>
       model.generateContent({
-        contents: [{ role: "user", parts: [{ text: content }] }],
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: content }], // Must be an object with 'text' key
+          },
+        ],
         generationConfig: {
           temperature: 0.7,
           maxOutputTokens: 512,
@@ -61,7 +69,7 @@ async function generateResponse(content) {
       }),
     );
 
-    // Use .text() function to get the response string
+    // .text() is a function that returns the generated string
     return result.response.text();
   } catch (err) {
     console.error("AI Response Error:", err.message);
@@ -69,9 +77,12 @@ async function generateResponse(content) {
   }
 }
 
+/**
+ * Generates a vector embedding for the given content
+ */
 async function generateVector(content) {
   try {
-    // Use the latest embedding model
+    // text-embedding-004 is the current standard for high-quality vectors
     const model = genAI.getGenerativeModel({ model: "text-embedding-004" });
 
     const result = await withRetry(() =>
