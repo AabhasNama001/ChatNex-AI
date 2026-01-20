@@ -32,7 +32,7 @@ async function generateResponse(content) {
   try {
     const response = await withRetry(() =>
       ai.models.generateContent({
-        model: "gemini-1.5-flash",
+        model: "models/gemini-1.5-flash",
         contents: content,
         config: {
           temperature: 0.7,
