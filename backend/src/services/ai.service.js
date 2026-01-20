@@ -1,85 +1,62 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
-// Initialize the API with your key
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// System instruction for ChatNex
 const SYSTEM_INSTRUCTION = `
 💎 You are ChatNex, a highly intelligent, empathetic, and friendly AI assistant crafted by the brilliant and hardworking developer with a radiant smile — Aabhas Nama.
 
-Always respond in a clear, concise, and polite manner, making your answers natural, supportive, and pleasing to read. Be helpful and encouraging, keeping the tone professional yet warm.
-
+Always respond in a clear, concise, and polite manner. 
 • For technical help → explain step by step  
 • For casual chat → be friendly and conversational  
-• Never be rude, robotic, or dismissive  
-• Use emojis sparingly and only when they add value  
-
-If someone asks about your owner, say:
-"ChatNex was crafted by the brilliant and hardworking developer with a radiant smile — Aabhas Nama."
-and share his LinkedIn:
-https://www.linkedin.com/in/aabhas-nama/
+• Share Aabhas's LinkedIn: https://www.linkedin.com/in/aabhas-nama/
 `;
 
-/**
- * Helper: retry wrapper for handling rate limits (429) or server issues (503)
- */
-async function withRetry(fn, retries = 4, delay = 1000) {
+async function withRetry(fn, retries = 3, delay = 1000) {
   for (let i = 0; i < retries; i++) {
     try {
       return await fn();
     } catch (err) {
       if (i === retries - 1) throw err;
-
       const status = err?.status || err?.response?.status;
       if (status === 503 || status === 429) {
-        console.warn(
-          `AI service busy (status ${status}). Retrying in ${delay}ms...`,
-        );
         await new Promise((res) => setTimeout(res, delay));
-      } else {
-        throw err;
-      }
+      } else throw err;
     }
   }
 }
 
-/**
- * Generates a text response using Gemini 1.5 Flash
- */
-async function generateResponse(content) {
+async function generateResponse(history) {
   try {
-    // 1. Initialize model with System Instruction
     const model = genAI.getGenerativeModel({
       model: "gemini-1.5-flash",
       systemInstruction: SYSTEM_INSTRUCTION,
     });
 
-    // 2. Pass the content directly as a string or a simple Part object.
-    // Do NOT wrap it in [{role: 'user', parts: [...]}] manually.
-    const result = await withRetry(() => model.generateContent(content));
+    // history must be: [{ role: "user", parts: [{ text: "..." }] }, ...]
+    const result = await withRetry(() =>
+      model.generateContent({
+        contents: history,
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 512,
+        },
+      }),
+    );
 
-    // 3. result.response is a promise that resolves to the actual response object
-    const response = await result.response;
-    return response.text();
+    return result.response.text();
   } catch (err) {
-    // Log detailed error for debugging
-    console.error("AI Response Error:", err);
-    return "⚠️ Sorry, I’m a bit overloaded right now. Please try again in a moment!";
+    console.error("Gemini API Error:", err.message);
+    return "⚠️ I'm having trouble connecting to my brain right now. Try again?";
   }
 }
-/**
- * Generates a vector embedding for the given content
- */
+
 async function generateVector(content) {
   try {
     const model = genAI.getGenerativeModel({ model: "text-embedding-004" });
-
-    // The SDK handles the wrapping here too
-    const result = await withRetry(() => model.embedContent(content));
-
+    const result = await model.embedContent(content);
     return result.embedding.values;
   } catch (err) {
-    console.error("Vector generation failed:", err.message);
+    console.error("Vector Error:", err.message);
     return null;
   }
 }

@@ -42,9 +42,11 @@ function initSocketServer(httpServer) {
 
     // ... (Auth and connection code remains same)
 
+    // ... (Your imports and initSocketServer code remain the same)
+
     socket.on("ai-message", async (messagePayload) => {
       try {
-        // Task 1 & 2: Save and Vectorize
+        // 1. Save and Vectorize User Message
         const [message, vectors] = await Promise.all([
           messageModel.create({
             chat: messagePayload.chat,
@@ -55,20 +57,7 @@ function initSocketServer(httpServer) {
           aiService.generateVector(messagePayload.content),
         ]);
 
-        // Guard Clause for Vector Storage
-        if (vectors) {
-          createMemory({
-            vectors,
-            messageId: message._id,
-            metadata: {
-              chat: messagePayload.chat,
-              user: socket.user._id,
-              text: messagePayload.content,
-            },
-          });
-        }
-
-        // Task 4 & 5: Retrieve Memory and History
+        // 2. Fetch Memories and History
         const [memory, chatHistoryRaw] = await Promise.all([
           queryMemory({
             queryVector: vectors,
@@ -78,69 +67,75 @@ function initSocketServer(httpServer) {
           messageModel
             .find({ chat: messagePayload.chat })
             .sort({ createdAt: -1 })
-            .limit(20)
+            .limit(15) // Keep a concise history
             .lean(),
         ]);
 
         const chatHistory = chatHistoryRaw.reverse();
 
-        // Task 6: Prepare Payload for Gemini
-        // We combine the memories into a single context block
-        const contextFromMemory =
-          memory.length > 0
-            ? `Context from previous conversations:\n${memory.map((item) => item.metadata.text).join("\n")}\n\n`
-            : "";
-
-        const shortTermMemory = chatHistory.map((item) => ({
-          role: item.role === "model" ? "model" : "user", // Ensure correct role mapping
+        // 3. Format history for Gemini SDK
+        const formattedHistory = chatHistory.map((item) => ({
+          role: item.role === "model" ? "model" : "user",
           parts: [{ text: item.content }],
         }));
 
-        // IMPORTANT: Inject the long-term memory into the current prompt or the first message
-        const fullConversation = [...shortTermMemory];
+        // 4. Inject Long-term Context into the CURRENT user message
+        // This ensures we always end on a user role and include the RAG data
+        const context =
+          memory.length > 0
+            ? `[Memory Context: ${memory.map((m) => m.metadata.text).join(" | ")}]\n\n`
+            : "";
 
-        // Add the RAG context to the last message to keep it relevant
-        if (fullConversation.length > 0) {
-          fullConversation[fullConversation.length - 1].parts[0].text =
-            contextFromMemory +
-            fullConversation[fullConversation.length - 1].parts[0].text;
+        if (formattedHistory.length > 0) {
+          const lastIndex = formattedHistory.length - 1;
+          formattedHistory[lastIndex].parts[0].text =
+            context + formattedHistory[lastIndex].parts[0].text;
+        } else {
+          // Fallback for first message
+          formattedHistory.push({
+            role: "user",
+            parts: [{ text: context + messagePayload.content }],
+          });
         }
 
-        // Task 6: Generate Response
-        // Pass the full array to generateResponse
-        const response = await aiService.generateResponse(fullConversation);
+        // 5. Get AI Response
+        const aiResponseText =
+          await aiService.generateResponse(formattedHistory);
 
-        // Task 10: Immediate UI Feedback
+        // 6. Emit to Frontend immediately for UX
         socket.emit("ai-message-response", {
-          content: response,
+          content: aiResponseText,
           chat: messagePayload.chat,
         });
 
-        // Task 7, 8, & 9: Post-response processing
-        const [responseMessage, responseVectors] = await Promise.all([
+        // 7. Save AI Response and Vectorize (Background)
+        const [aiMsg, aiVectors] = await Promise.all([
           messageModel.create({
             chat: messagePayload.chat,
-            content: response,
+            content: aiResponseText,
             user: socket.user._id,
             role: "model",
           }),
-          aiService.generateVector(response),
+          aiService.generateVector(aiResponseText),
         ]);
 
-        if (responseVectors) {
-          await createMemory({
-            vectors: responseVectors,
-            messageId: responseMessage._id,
+        if (aiVectors) {
+          createMemory({
+            vectors: aiVectors,
+            messageId: aiMsg._id,
             metadata: {
               chat: messagePayload.chat,
               user: socket.user._id,
-              text: response,
+              text: aiResponseText,
             },
           });
         }
       } catch (error) {
-        console.error("Socket Message Error:", error);
-        socket.emit("error", { message: "Failed to process AI message" });
+        console.error("Socket Logic Error:", error);
+        socket.emit("ai-message-response", {
+          content: "❌ Something went wrong in my circuits!",
+          chat: messagePayload.chat,
+        });
       }
     });
   });
