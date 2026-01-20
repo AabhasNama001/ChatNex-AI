@@ -48,7 +48,6 @@ async function withRetry(fn, retries = 4, delay = 1000) {
  */
 async function generateResponse(content) {
   try {
-    // Initialize model with system instruction
     const model = genAI.getGenerativeModel({
       model: "gemini-1.5-flash",
       systemInstruction: SYSTEM_INSTRUCTION,
@@ -59,7 +58,7 @@ async function generateResponse(content) {
         contents: [
           {
             role: "user",
-            parts: [{ text: content }], // Must be an object with 'text' key
+            parts: [{ text: content }], // Ensure content is a string inside the text object
           },
         ],
         generationConfig: {
@@ -69,10 +68,12 @@ async function generateResponse(content) {
       }),
     );
 
-    // .text() is a function that returns the generated string
-    return result.response.text();
+    // .response is a promise-like object, .text() extracts the string
+    const response = await result.response;
+    return response.text();
   } catch (err) {
-    console.error("AI Response Error:", err.message);
+    // Log the full error to see if there's a different schema issue
+    console.error("AI Response Error:", err);
     return "⚠️ Sorry, I’m a bit overloaded right now. Please try again in a moment!";
   }
 }
